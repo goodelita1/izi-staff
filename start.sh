@@ -89,6 +89,18 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  BOOT ANIMATION
+# ══════════════════════════════════════════════════════════════════════════════
+PYTHON3_BIN_QUICK=""
+for _b in python3.13 python3.12 python3.11 python3; do
+  if command -v "$_b" &>/dev/null; then PYTHON3_BIN_QUICK="$_b"; break; fi
+done
+
+if [ -n "$PYTHON3_BIN_QUICK" ] && [ -f "$SCRIPT_DIR/boot_animation.py" ]; then
+  "$PYTHON3_BIN_QUICK" "$SCRIPT_DIR/boot_animation.py"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  ЗАГОЛОВОК
 # ══════════════════════════════════════════════════════════════════════════════
 clear
