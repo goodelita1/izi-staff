@@ -120,7 +120,19 @@ ok "Backend готовий"
 
 # ── 6. Frontend (production-збірка) ──────────────────────────────────────────
 log "Frontend: встановлення залежностей і збірка (npm run build)..."
-(cd "$APP_DIR/frontend" && sudo -u "$APP_USER" npm ci --silent && sudo -u "$APP_USER" npm run build --silent)
+# Без --silent і з логуванням у файл: --silent приховує навіть повідомлення
+# про помилку, тож при падінні (напр. нестача RAM під час vite build) в
+# консолі не було видно жодної причини. Тепер повний вивід завжди в
+# /tmp/izi_deploy_frontend.log, і при падінні друкуються останні рядки.
+FRONTEND_BUILD_LOG="/tmp/izi_deploy_frontend.log"
+if ! (cd "$APP_DIR/frontend" && sudo -u "$APP_USER" npm ci && sudo -u "$APP_USER" npm run build) > "$FRONTEND_BUILD_LOG" 2>&1; then
+  warn "Збірка frontend впала. Останні рядки логу ($FRONTEND_BUILD_LOG):"
+  tail -40 "$FRONTEND_BUILD_LOG"
+  echo ""
+  echo "Якщо серед причин 'JavaScript heap out of memory' або процес просто зникає"
+  echo "без явної помилки — перевірте: free -h  та  dmesg | tail -30 (можлива нестача RAM, OOM-kill)."
+  exit 1
+fi
 ok "Frontend зібрано → $APP_DIR/frontend/dist"
 
 # ── 7. systemd ────────────────────────────────────────────────────────────────
