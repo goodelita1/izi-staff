@@ -35,12 +35,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Inventory Management System", version="1.0.0", lifespan=lifespan)
 
-_ip = app_settings.host_ip
+# У production фронтенд і backend віддаються одним nginx на одному origin,
+# тож CORS фактично не задіюється — але лишаємо явний список адрес на
+# випадок прямих звернень (docs, інший порт, тощо).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        f"http://{_ip}:5173",
+        app_settings.frontend_url,
+        f"http://{app_settings.host_ip}:5173",
         "http://localhost:5173",
+        "http://127.0.0.1:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],

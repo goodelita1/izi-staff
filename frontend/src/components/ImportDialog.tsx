@@ -16,6 +16,8 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,6 +37,8 @@ interface Props {
 }
 
 export default function ImportDialog({ open, onClose }: Props) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("select");
@@ -80,6 +84,7 @@ export default function ImportDialog({ open, onClose }: Props) {
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
+      fullScreen={isMobile}
       slotProps={{
         paper: { sx: { bgcolor: "#161b22", border: "1px solid #30363d" } },
       }}

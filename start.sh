@@ -2,6 +2,12 @@
 # IZI Staff — скрипт запуску
 
 set -euo pipefail
+# Увімкнути job control навіть у неінтерактивному скрипті: тоді кожен
+# фоновий процес (backend/frontend) отримує СВОЮ групу процесів, окрему
+# від групи самого start.sh. Якщо зовнішній інструмент (наприклад,
+# агентський Bash-таймаут) вб'є лише групу самого start.sh — backend і
+# frontend це не зачепить.
+set -m
 
 # ── кольори ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -22,11 +28,11 @@ PIP="$VENV_DIR/bin/pip"
 UVICORN="$VENV_DIR/bin/uvicorn"
 ALEMBIC="$VENV_DIR/bin/alembic"
 
-# Читаємо HOST_IP з кореневого .env
+# Значення HOST_IP з кореневого .env (як запасний варіант, якщо автовизначення не спрацює)
+ENV_HOST_IP=""
 if [ -f "$SCRIPT_DIR/.env" ]; then
-  HOST_IP=$(grep -E "^HOST_IP=" "$SCRIPT_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
+  ENV_HOST_IP=$(grep -E "^HOST_IP=" "$SCRIPT_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
 fi
-HOST_IP="${HOST_IP:-192.168.3.144}"
 
 BACKEND_PORT=8000
 FRONTEND_PORT=5173
@@ -43,6 +49,45 @@ log_warn()    { echo -e "${YELLOW}  ⚠${RESET} $1"; }
 log_error()   { echo -e "${RED}  ✗${RESET} $1"; }
 log_section() { echo -e "\n${BOLD}${BLUE}▶ $1${RESET}"; }
 
+# ── визначення поточної IP-адреси пристрою в локальній мережі ────────────────
+detect_ip() {
+  local ip=""
+
+  # 1) Інтерфейс дефолтного маршруту — та мережа, яка справді активна зараз
+  #    (Wi-Fi чи Ethernet, без прив'язки до конкретної назви en0/en1)
+  local iface
+  iface=$(route -n get default 2>/dev/null | awk '/interface: /{print $2}') || true
+  if [ -n "$iface" ]; then
+    ip=$(ipconfig getifaddr "$iface" 2>/dev/null || true)
+  fi
+
+  # 2) Фолбек: перебрати типові macOS-інтерфейси
+  if [ -z "$ip" ]; then
+    local i
+    for i in en0 en1 en2 en3 en4; do
+      ip=$(ipconfig getifaddr "$i" 2>/dev/null || true)
+      [ -n "$ip" ] && break
+    done
+  fi
+
+  # 3) Фолбек: перша не-loopback IPv4-адреса з ifconfig (на випадок Linux/інших систем)
+  if [ -z "$ip" ] && command -v ifconfig &>/dev/null; then
+    ip=$(ifconfig 2>/dev/null | awk '/inet /{print $2}' | grep -v '^127\.' | head -1) || true
+  fi
+
+  echo "$ip"
+}
+
+# Оновити (або додати) значення ключа в .env, зберігаючи решту файлу
+update_env_var() {
+  local key="$1" value="$2" file="$3"
+  if [ -f "$file" ] && grep -qE "^${key}=" "$file"; then
+    sed -i '' -E "s|^${key}=.*|${key}=${value}|" "$file"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$file"
+  fi
+}
+
 # ── перевірка порту ───────────────────────────────────────────────────────────
 port_in_use() {
   lsof -ti tcp:"$1" > /dev/null 2>&1
@@ -58,12 +103,11 @@ kill_port() {
   fi
 }
 
-# ── зупинити всі процеси при виході ──────────────────────────────────────────
-cleanup() {
-  echo -e "\n${YELLOW}  Зупинка сервісів...${RESET}"
+# ── зупинити backend/frontend (використовується і в cleanup(), і в --stop) ───
+stop_services() {
+  local pid
 
   if [ -f "$BACKEND_PID_FILE" ]; then
-    local pid
     pid=$(cat "$BACKEND_PID_FILE" 2>/dev/null || true)
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
       kill "$pid" 2>/dev/null || true
@@ -72,7 +116,6 @@ cleanup() {
   fi
 
   if [ -f "$FRONTEND_PID_FILE" ]; then
-    local pid
     pid=$(cat "$FRONTEND_PID_FILE" 2>/dev/null || true)
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
       kill "$pid" 2>/dev/null || true
@@ -80,11 +123,59 @@ cleanup() {
     rm -f "$FRONTEND_PID_FILE"
   fi
 
+  # Дати процесам шанс завершитись штатно (зловити SIGTERM, залогувати
+  # "Shutting down" і вийти самим), перш ніж форсувати -9 через kill_port.
+  # Без цієї паузи kill -9 міг прилітати в процес, який ще завершувався
+  # штатно, обриваючи його на середині — саме це й малось у лозі, де
+  # останній рядок був "Shutting down" без нічого після нього.
+  local waited=0
+  while { port_in_use $BACKEND_PORT || port_in_use $FRONTEND_PORT; } && [ $waited -lt 10 ]; do
+    sleep 0.5
+    waited=$((waited + 1))
+  done
+
   kill_port $BACKEND_PORT
   kill_port $FRONTEND_PORT
+}
 
+# ── зупинити всі процеси при виході ──────────────────────────────────────────
+cleanup() {
+  echo -e "\n${YELLOW}  Зупинка сервісів...${RESET}"
+  stop_services
   echo -e "${GREEN}  ✓ Зупинено.${RESET}\n"
 }
+
+# ── розбір аргументів командного рядка ────────────────────────────────────────
+BACKGROUND_MODE=0
+case "${1:-}" in
+  --stop)
+    echo -e "${YELLOW}  Зупинка сервісів IZI Staff...${RESET}"
+    stop_services
+    echo -e "${GREEN}  ✓ Зупинено.${RESET}"
+    exit 0
+    ;;
+  --background|-d)
+    BACKGROUND_MODE=1
+    ;;
+  --help|-h)
+    echo "Використання: ./start.sh [опція]"
+    echo ""
+    echo "  (без опцій)       запустити та стежити за сервісами в цьому терміналі"
+    echo "                    (Ctrl+C зупиняє backend і frontend)"
+    echo "  --background, -d  запустити у фоні й одразу повернути керування"
+    echo "                    термінал/агентський інструмент не блокується і не"
+    echo "                    вб'є сервіси через таймаут на виконання команди"
+    echo "  --stop            зупинити сервіси, запущені раніше через --background"
+    echo "  --help, -h        показати цю довідку"
+    exit 0
+    ;;
+  "")
+    ;;
+  *)
+    log_error "Невідома опція: ${1}. Використайте --help."
+    exit 1
+    ;;
+esac
 
 trap cleanup EXIT INT TERM
 
@@ -109,6 +200,36 @@ echo "  ╔═══════════════════════
 echo "  ║         IZI Staff — Облік майна          ║"
 echo "  ╚══════════════════════════════════════════╝"
 echo -e "${RESET}"
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  0. ВИЗНАЧЕННЯ IP-АДРЕСИ ПРИСТРОЮ
+# ══════════════════════════════════════════════════════════════════════════════
+log_section "Визначення IP-адреси"
+
+DETECTED_IP="$(detect_ip)"
+
+if [ -n "$DETECTED_IP" ]; then
+  if [ -n "$ENV_HOST_IP" ] && [ "$DETECTED_IP" != "$ENV_HOST_IP" ]; then
+    log_warn "IP змінився: $ENV_HOST_IP → $DETECTED_IP"
+  fi
+  HOST_IP="$DETECTED_IP"
+
+  # Записуємо актуальний IP у .env, щоб backend (pydantic-settings) і
+  # frontend (Vite, envDir) підхопили його при старті нижче
+  if [ ! -f "$SCRIPT_DIR/.env" ]; then
+    touch "$SCRIPT_DIR/.env"
+  fi
+  update_env_var "HOST_IP" "$HOST_IP" "$SCRIPT_DIR/.env"
+  update_env_var "VITE_HOST_IP" "$HOST_IP" "$SCRIPT_DIR/.env"
+
+  log_ok "IP визначено автоматично: $HOST_IP"
+else
+  HOST_IP="${ENV_HOST_IP:-127.0.0.1}"
+  log_warn "Не вдалося автоматично визначити IP — використовую $HOST_IP"
+  if [ "$HOST_IP" = "127.0.0.1" ]; then
+    log_warn "Застосунок буде доступний лише на цьому комп'ютері (localhost)"
+  fi
+fi
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  1. ПЕРЕВІРКА ЗАЛЕЖНОСТЕЙ
@@ -233,9 +354,14 @@ echo $BACKEND_PID > "$BACKEND_PID_FILE"
 log_info "Backend запускається (PID: $BACKEND_PID)..."
 
 # Чекати поки backend відповідає
+# Примітка: перевіряємо через 127.0.0.1, а не через HOST_IP з .env —
+# якщо IP комп'ютера в мережі зміниться (нова Wi-Fi мережа тощо) і HOST_IP
+# застаріє, curl на неіснуючу в поточній мережі адресу може довго висіти
+# в очікуванні з'єднання (немає маршруту), і скрипт виглядатиме "завислим",
+# хоча backend насправді вже запущений і слухає 0.0.0.0.
 MAX_WAIT=30
 WAITED=0
-while ! curl -s "http://$HOST_IP:$BACKEND_PORT/api/health" > /dev/null 2>&1; do
+while ! curl -s --max-time 2 "http://127.0.0.1:$BACKEND_PORT/api/health" > /dev/null 2>&1; do
   sleep 1
   WAITED=$((WAITED + 1))
   if [ $WAITED -ge $MAX_WAIT ]; then
@@ -263,9 +389,9 @@ FRONTEND_PID=$!
 echo $FRONTEND_PID > "$FRONTEND_PID_FILE"
 log_info "Frontend запускається (PID: $FRONTEND_PID)..."
 
-# Чекати поки frontend відповідає
+# Чекати поки frontend відповідає (теж через 127.0.0.1, з тієї ж причини)
 WAITED=0
-while ! curl -s "http://$HOST_IP:$FRONTEND_PORT" > /dev/null 2>&1; do
+while ! curl -s --max-time 2 "http://127.0.0.1:$FRONTEND_PORT" > /dev/null 2>&1; do
   sleep 1
   WAITED=$((WAITED + 1))
   if [ $WAITED -ge $MAX_WAIT ]; then
@@ -307,6 +433,16 @@ fi
 # ══════════════════════════════════════════════════════════════════════════════
 #  8. ОЧІКУВАННЯ / МОНІТОРИНГ
 # ══════════════════════════════════════════════════════════════════════════════
+if [ "$BACKGROUND_MODE" = "1" ]; then
+  echo -e "  ${BOLD}Режим:${RESET}         фоновий (сервіси працюють після виходу зі скрипта)"
+  echo -e "  ${BOLD}Зупинити:${RESET}      ./start.sh --stop"
+  echo ""
+  # Зняти trap, щоб вихід зі скрипта зараз НЕ викликав cleanup() і не вбив
+  # щойно запущені backend/frontend.
+  trap - EXIT INT TERM
+  exit 0
+fi
+
 # Показувати статус кожні 30 секунд, перевіряти чи процеси живі
 while true; do
   sleep 30

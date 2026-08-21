@@ -15,21 +15,18 @@ import {
   TableRow,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import RestoreIcon from "@mui/icons-material/Restore";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { inventoryApi } from "../api/inventory";
-import { STATUS_COLORS } from "../utils/theme";
-
-const STATUS_UA: Record<string, string> = {
-  Warehouse: "Склад",
-  Issued: "Видано",
-  Returned: "Повернуто",
-  "Written Off": "Списано",
-};
+import { STATUS_COLORS, STATUS_UA } from "../utils/theme";
 
 export default function TrashPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +71,15 @@ export default function TrashPage() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 2 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          mb: 2,
+          gap: 2,
+          flexWrap: "wrap",
+        }}
+      >
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Кошик
         </Typography>
@@ -106,6 +111,63 @@ export default function TrashPage() {
         <Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
           Кошик порожній
         </Typography>
+      ) : isMobile ? (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {data.map((item) => {
+            const color = STATUS_COLORS[item.status] ?? "#8b949e";
+            return (
+              <Box
+                key={item.id}
+                sx={{
+                  p: 1.25,
+                  borderRadius: 1.5,
+                  border: "1px solid #30363d",
+                  bgcolor: "#161b22",
+                }}
+              >
+                <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontFamily: '"JetBrains Mono", monospace' }}
+                  >
+                    {item.inventory_number}
+                  </Typography>
+                  <Chip
+                    label={STATUS_UA[item.status] ?? item.status}
+                    size="small"
+                    sx={{ height: 19, fontSize: 10.5, bgcolor: color + "22", color }}
+                  />
+                </Box>
+                <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.25 }}>
+                  {item.item_name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {item.category} · Накладна {item.invoice_number}
+                </Typography>
+                <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                  <Button
+                    size="small"
+                    startIcon={<RestoreIcon fontSize="small" />}
+                    onClick={() => restoreMutation.mutate(item.id)}
+                    disabled={restoreMutation.isPending}
+                    sx={{ color: "#3fb950" }}
+                  >
+                    Відновити
+                  </Button>
+                  <Button
+                    size="small"
+                    startIcon={<DeleteForeverIcon fontSize="small" />}
+                    onClick={() => handlePermanentDelete(item.id, item.item_name)}
+                    disabled={permanentDeleteMutation.isPending}
+                    sx={{ color: "#f85149" }}
+                  >
+                    Видалити
+                  </Button>
+                </Box>
+              </Box>
+            );
+          })}
+        </Box>
       ) : (
         <TableContainer component={Paper} sx={{ bgcolor: "#161b22" }}>
           <Table size="small">

@@ -26,7 +26,10 @@ export const theme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
-        body: { minWidth: 1280, scrollbarColor: "#30363d #0d1117" },
+        // Раніше тут був примусовий minWidth: 1280 — саме через нього
+        // застосунок завжди рендерився як десктопна версія, навіть на
+        // телефоні (сторінка просто масштабувалась, а не адаптувалась).
+        body: { scrollbarColor: "#30363d #0d1117" },
       },
     },
     MuiPaper: {
@@ -52,6 +55,13 @@ export const STATUS_COLORS: Record<string, string> = {
   Issued: "#58a6ff",
   Returned: "#d29922",
   "Written Off": "#8b949e",
+};
+
+export const STATUS_UA: Record<string, string> = {
+  Warehouse: "Склад",
+  Issued: "Видано",
+  Returned: "Повернуто",
+  "Written Off": "Списано",
 };
 
 export const DAYS_COLORS = (days: number): string => {

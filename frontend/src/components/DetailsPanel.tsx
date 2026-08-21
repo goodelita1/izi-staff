@@ -7,6 +7,8 @@ import {
   Stack,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
@@ -56,29 +58,66 @@ export default function DetailsPanel({
   onDelete,
   onPrintQR,
 }: Props) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   return (
     <Drawer
-      anchor="right"
+      anchor={isMobile ? "bottom" : "right"}
       open={!!item}
       onClose={onClose}
-      variant="persistent"
-      sx={{
-        width: item ? PANEL_WIDTH : 0,
-        flexShrink: 0,
-        "& .MuiDrawer-paper": {
-          width: PANEL_WIDTH,
-          bgcolor: "#161b22",
-          borderLeft: "1px solid #30363d",
-          top: 48,
-          height: "calc(100% - 48px)",
-          p: 2,
-          boxSizing: "border-box",
+      variant={isMobile ? "temporary" : "persistent"}
+      sx={
+        isMobile
+          ? {}
+          : {
+              width: item ? PANEL_WIDTH : 0,
+              flexShrink: 0,
+            }
+      }
+      slotProps={{
+        paper: {
+          sx: isMobile
+            ? {
+                bgcolor: "#161b22",
+                borderTop: "1px solid #30363d",
+                borderTopLeftRadius: 14,
+                borderTopRightRadius: 14,
+                maxHeight: "88vh",
+                p: 2,
+                pt: 1,
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+              }
+            : {
+                width: PANEL_WIDTH,
+                bgcolor: "#161b22",
+                borderLeft: "1px solid #30363d",
+                top: 48,
+                height: "calc(100% - 48px)",
+                p: 2,
+                boxSizing: "border-box",
+              },
         },
       }}
     >
       {item && (
         <>
-          <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1 }}>
+          {isMobile && (
+            <Box
+              sx={{
+                width: 36,
+                height: 4,
+                borderRadius: 2,
+                bgcolor: "#30363d",
+                mx: "auto",
+                mb: 1,
+              }}
+            />
+          )}
+
+          <Box sx={{ display: "flex", alignItems: "flex-start", mb: 1, flexShrink: 0 }}>
             <Box sx={{ flex: 1 }}>
               <Typography
                 variant="caption"
@@ -112,6 +151,8 @@ export default function DetailsPanel({
               mb: 1.5,
               height: 22,
               fontSize: 11,
+              flexShrink: 0,
+              alignSelf: "flex-start",
             }}
           />
 
@@ -126,12 +167,13 @@ export default function DetailsPanel({
               mx: "auto",
               mb: 1.5,
               borderRadius: 1,
+              flexShrink: 0,
             }}
           />
 
-          <Divider sx={{ borderColor: "#30363d", mb: 1 }} />
+          <Divider sx={{ borderColor: "#30363d", mb: 1, flexShrink: 0 }} />
 
-          <Box sx={{ overflowY: "auto", flex: 1 }}>
+          <Box sx={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
             <Row label="Номер накладної" value={item.invoice_number} />
             <Row label="Дата накладної" value={item.invoice_date} />
             <Row label="Код номенклатури" value={item.nomenclature_code} />
@@ -180,9 +222,9 @@ export default function DetailsPanel({
             <Row label="Примітка" value={item.note} />
           </Box>
 
-          <Divider sx={{ borderColor: "#30363d", mt: 1, mb: 1 }} />
+          <Divider sx={{ borderColor: "#30363d", mt: 1, mb: 1, flexShrink: 0 }} />
 
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
             <Tooltip title="Редагувати">
               <IconButton
                 size="small"

@@ -1,10 +1,17 @@
+import { useState } from "react";
 import {
   Box,
   Button,
   IconButton,
   InputAdornment,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
   TextField,
   Tooltip,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
@@ -15,6 +22,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { useNavigate } from "react-router-dom";
 
 interface Props {
@@ -37,6 +45,132 @@ export default function InventoryToolbar({
   onRefresh,
 }: Props) {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+
+  const searchField = (
+    <TextField
+      size="small"
+      fullWidth
+      placeholder="Пошук по всіх полях..."
+      value={search}
+      onChange={(e) => onSearchChange(e.target.value)}
+      slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ color: "text.secondary", fontSize: 18 }} />
+            </InputAdornment>
+          ),
+          endAdornment: search ? (
+            <InputAdornment position="end">
+              <IconButton size="small" onClick={() => onSearchChange("")}>
+                <ClearIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </InputAdornment>
+          ) : null,
+        },
+      }}
+      sx={{
+        "& .MuiOutlinedInput-root": {
+          "& fieldset": { borderColor: "#30363d" },
+          "&:hover fieldset": { borderColor: "#58a6ff" },
+        },
+      }}
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <Box sx={{ display: "flex", gap: 1, mb: 1.5, alignItems: "center" }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>{searchField}</Box>
+
+        <Tooltip title="Оновити">
+          <IconButton
+            size="small"
+            onClick={onRefresh}
+            sx={{ color: "text.secondary", border: "1px solid #30363d" }}
+          >
+            <RefreshIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+
+        <IconButton
+          size="small"
+          onClick={(e) => setMenuAnchor(e.currentTarget)}
+          sx={{ color: "text.secondary", border: "1px solid #30363d" }}
+        >
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+
+        <Menu
+          anchorEl={menuAnchor}
+          open={!!menuAnchor}
+          onClose={() => setMenuAnchor(null)}
+          slotProps={{
+            paper: { sx: { bgcolor: "#161b22", border: "1px solid #30363d" } },
+          }}
+        >
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onImport();
+            }}
+          >
+            <ListItemIcon>
+              <FileUploadIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Імпорт Excel</ListItemText>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onExport();
+            }}
+          >
+            <ListItemIcon>
+              <FileDownloadIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Експорт Excel</ListItemText>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onQR();
+            }}
+          >
+            <ListItemIcon>
+              <QrCodeIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>QR-коди</ListItemText>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              navigate("/backups");
+            }}
+          >
+            <ListItemIcon>
+              <BackupIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Резервна копія</ListItemText>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              navigate("/trash");
+            }}
+          >
+            <ListItemIcon>
+              <DeleteIcon fontSize="small" sx={{ color: "#f85149" }} />
+            </ListItemIcon>
+            <ListItemText sx={{ color: "#f85149" }}>Кошик</ListItemText>
+          </MenuItem>
+        </Menu>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -139,35 +273,7 @@ export default function InventoryToolbar({
       </Tooltip>
 
       <Box sx={{ flex: 1, minWidth: 200, maxWidth: 360, ml: "auto" }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Пошук по всіх полях..."
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: "text.secondary", fontSize: 18 }} />
-                </InputAdornment>
-              ),
-              endAdornment: search ? (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => onSearchChange("")}>
-                    <ClearIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </InputAdornment>
-              ) : null,
-            },
-          }}
-          sx={{
-            "& .MuiOutlinedInput-root": {
-              "& fieldset": { borderColor: "#30363d" },
-              "&:hover fieldset": { borderColor: "#58a6ff" },
-            },
-          }}
-        />
+        {searchField}
       </Box>
     </Box>
   );

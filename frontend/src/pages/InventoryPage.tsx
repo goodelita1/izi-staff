@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, Fab, useMediaQuery, useTheme } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 import StatisticsCards from "../components/StatisticsCards";
 import InventoryToolbar from "../components/InventoryToolbar";
 import InventoryTable from "../components/InventoryTable";
+import InventoryCardList from "../components/InventoryCardList";
 import DetailsPanel from "../components/DetailsPanel";
 import InventoryFormDialog from "../components/InventoryFormDialog";
 import QRDialog from "../components/QRDialog";
@@ -18,6 +20,9 @@ import { inventoryApi } from "../api/inventory";
 import type { InventoryItem } from "../types/inventory";
 
 export default function InventoryPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   const [searchParams] = useSearchParams();
   const initialSearch = searchParams.get("search") ?? "";
   const [searchInput, setSearchInput] = useState(initialSearch);
@@ -79,6 +84,18 @@ export default function InventoryPage() {
     setEditItem(null);
   }, []);
 
+  const handleToggleSelect = useCallback((item: InventoryItem) => {
+    setSelectedRows((prev) =>
+      prev.some((r) => r.id === item.id)
+        ? prev.filter((r) => r.id !== item.id)
+        : [...prev, item],
+    );
+  }, []);
+  const selectedIds = useMemo(
+    () => new Set(selectedRows.map((r) => r.id)),
+    [selectedRows],
+  );
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "n") {
@@ -100,16 +117,24 @@ export default function InventoryPage() {
 
   return (
     <Box
-      sx={{ display: "flex", height: "calc(100vh - 52px)", overflow: "hidden" }}
+      sx={
+        isMobile
+          ? { display: "flex", flexDirection: "column" }
+          : { display: "flex", height: "calc(100vh - 52px)", overflow: "hidden" }
+      }
     >
       <Box
-        sx={{
-          flex: 1,
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
+        sx={
+          isMobile
+            ? { flex: 1, minWidth: 0 }
+            : {
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }
+        }
       >
         <StatisticsCards stats={stats} loading={statsLoading} />
 
@@ -123,19 +148,34 @@ export default function InventoryPage() {
           onRefresh={() => qc.invalidateQueries({ queryKey: ["inventory"] })}
         />
 
-        <InventoryTable
-          rows={data?.items ?? []}
-          total={data?.total ?? 0}
-          page={page}
-          limit={limit}
-          onPageChange={setPage}
-          onLimitChange={setLimit}
-          onRowClick={setSelectedItem}
-          onRowDoubleClick={handleEdit}
-          onDelete={handleDelete}
-          onSelectionChange={setSelectedRows}
-          selectedId={selectedItem?.id}
-        />
+        {isMobile ? (
+          <InventoryCardList
+            rows={data?.items ?? []}
+            total={data?.total ?? 0}
+            page={page}
+            limit={limit}
+            onPageChange={setPage}
+            onLimitChange={setLimit}
+            onRowClick={setSelectedItem}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            activeId={selectedItem?.id}
+          />
+        ) : (
+          <InventoryTable
+            rows={data?.items ?? []}
+            total={data?.total ?? 0}
+            page={page}
+            limit={limit}
+            onPageChange={setPage}
+            onLimitChange={setLimit}
+            onRowClick={setSelectedItem}
+            onRowDoubleClick={handleEdit}
+            onDelete={handleDelete}
+            onSelectionChange={setSelectedRows}
+            selectedId={selectedItem?.id}
+          />
+        )}
       </Box>
 
       <DetailsPanel
@@ -162,6 +202,22 @@ export default function InventoryPage() {
       />
 
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+
+      {isMobile && (
+        <Fab
+          color="primary"
+          onClick={handleAdd}
+          sx={{
+            position: "fixed",
+            right: 16,
+            bottom: 16,
+            bgcolor: "#238636",
+            "&:hover": { bgcolor: "#2ea043" },
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      )}
     </Box>
   );
 }

@@ -19,7 +19,7 @@ export default function AppLayout({ currentDb, onSwitchDb }: Props) {
       }}
     >
       <TopBar currentDb={currentDb} onSwitchDb={onSwitchDb} />
-      <Box component="main" sx={{ flex: 1, p: 2 }}>
+      <Box component="main" sx={{ flex: 1, p: { xs: 1, sm: 2 } }}>
         <Outlet />
       </Box>
     </Box>

@@ -89,7 +89,7 @@ export default function SettingsPage() {
         </Alert>
       )}
 
-      <Paper sx={{ p: 2.5, bgcolor: "#161b22" }}>
+      <Paper sx={{ p: { xs: 1.75, sm: 2.5 }, bgcolor: "#161b22" }}>
         <Typography
           variant="caption"
           sx={{

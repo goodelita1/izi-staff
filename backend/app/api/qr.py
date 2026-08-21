@@ -5,7 +5,7 @@ from app.config.settings import settings
 
 router = APIRouter(prefix="/qr", tags=["qr"])
 
-FRONTEND_BASE = f"http://{settings.host_ip}:5173"
+FRONTEND_BASE = settings.frontend_url
 
 
 @router.get("/print")

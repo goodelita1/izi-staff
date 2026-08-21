@@ -7,6 +7,8 @@ import {
   DialogTitle,
   Grid,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import PrintIcon from "@mui/icons-material/Print";
 import type { InventoryItem } from "../types/inventory";
@@ -56,6 +58,9 @@ function QRPreviewCard({ item }: { item: InventoryItem }) {
 }
 
 export default function QRDialog({ open, items, onClose }: Props) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   const handlePrint = () => {
     if (!items.length) return;
     const numbers = items.map((i) => i.inventory_number).join(",");
@@ -79,6 +84,7 @@ export default function QRDialog({ open, items, onClose }: Props) {
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      fullScreen={isMobile}
       slotProps={{
         paper: { sx: { bgcolor: "#161b22", border: "1px solid #30363d" } },
       }}

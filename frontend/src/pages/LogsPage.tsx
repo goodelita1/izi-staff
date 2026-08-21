@@ -78,19 +78,20 @@ export default function LogsPage() {
         maxWidth: 1100,
         display: "flex",
         flexDirection: "column",
-        height: "calc(100vh - 100px)",
+        height: { xs: "auto", sm: "calc(100vh - 100px)" },
       }}
     >
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
-          gap: 2,
+          gap: 1.5,
           mb: 2,
           flexShrink: 0,
+          flexWrap: "wrap",
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 600, mr: "auto" }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, mr: "auto", width: { xs: "100%", sm: "auto" } }}>
           Журнал подій
         </Typography>
 

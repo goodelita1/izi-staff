@@ -12,6 +12,8 @@ import {
   TextField,
   Typography,
   Alert,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import type { InventoryItem } from "../types/inventory";
 import {
@@ -143,6 +145,8 @@ interface Props {
 }
 
 export default function InventoryFormDialog({ open, item, onClose }: Props) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isEdit = !!item;
   const [form, setForm] = useState<FormData>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -233,6 +237,7 @@ export default function InventoryFormDialog({ open, item, onClose }: Props) {
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      fullScreen={isMobile}
       slotProps={{
         paper: { sx: { bgcolor: "#161b22", border: "1px solid #30363d" } },
       }}
@@ -293,15 +298,21 @@ export default function InventoryFormDialog({ open, item, onClose }: Props) {
           НАКЛАДНА
         </Typography>
         <Grid container spacing={1.5} sx={{ mb: 2 }}>
-          <Grid size={3}>{Field("invoice_number", "Номер накладної *")}</Grid>
-          <Grid size={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            {Field("invoice_number", "Номер накладної *")}
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             {Field("invoice_date", "Дата накладної *", {
               type: "date",
               slotProps: { inputLabel: { shrink: true } },
             })}
           </Grid>
-          <Grid size={3}>{Field("invoice_receiver", "Отримувач")}</Grid>
-          <Grid size={3}>{Field("department", "Служба")}</Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            {Field("invoice_receiver", "Отримувач")}
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            {Field("department", "Служба")}
+          </Grid>
         </Grid>
 
         <Divider sx={{ borderColor: "#30363d", mb: 2 }} />
@@ -318,32 +329,40 @@ export default function InventoryFormDialog({ open, item, onClose }: Props) {
           МАЙНО
         </Typography>
         <Grid container spacing={1.5}>
-          <Grid size={6}>{Field("item_name", "Назва майна *")}</Grid>
-          <Grid size={3}>{Field("nomenclature_code", "Код номенклатури")}</Grid>
-          <Grid size={3}>{Field("serial_number", "Серійний номер")}</Grid>
+          <Grid size={{ xs: 12, md: 6 }}>{Field("item_name", "Назва майна *")}</Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            {Field("nomenclature_code", "Код номенклатури")}
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            {Field("serial_number", "Серійний номер")}
+          </Grid>
 
-          <Grid size={2}>{Field("unit", "Одиниця *")}</Grid>
-          <Grid size={3}>{Field("category", "Категорія *")}</Grid>
-          <Grid size={2}>
+          <Grid size={{ xs: 6, sm: 4, md: 2 }}>{Field("unit", "Одиниця *")}</Grid>
+          <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+            {Field("category", "Категорія *")}
+          </Grid>
+          <Grid size={{ xs: 6, sm: 4, md: 2 }}>
             {Field("quantity", "Кількість *", { type: "number" })}
           </Grid>
-          <Grid size={2.5}>
+          <Grid size={{ xs: 6, sm: 6, md: 2.5 }}>
             {Field("price", "Вартість", { type: "number" })}
           </Grid>
-          <Grid size={2.5}>
+          <Grid size={{ xs: 6, sm: 6, md: 2.5 }}>
             {Field("total_price", "Сума", { type: "number" })}
           </Grid>
 
-          <Grid size={4}>{Field("issued_to", "Кому видано")}</Grid>
-          <Grid size={4}>{Field("location", "Місце")}</Grid>
-          <Grid size={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            {Field("issued_to", "Кому видано")}
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>{Field("location", "Місце")}</Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             {Field("issued_date", "Дата видачі", {
               type: "date",
               slotProps: { inputLabel: { shrink: true } },
             })}
           </Grid>
 
-          <Grid size={3}>
+          <Grid size={{ xs: 6, sm: 6, md: 3 }}>
             <TextField
               select
               size="small"
@@ -365,7 +384,7 @@ export default function InventoryFormDialog({ open, item, onClose }: Props) {
               ))}
             </TextField>
           </Grid>
-          <Grid size={3}>
+          <Grid size={{ xs: 6, sm: 6, md: 3 }}>
             <TextField
               select
               size="small"
@@ -384,7 +403,7 @@ export default function InventoryFormDialog({ open, item, onClose }: Props) {
               ))}
             </TextField>
           </Grid>
-          <Grid size={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             {Field("note", "Примітка", { multiline: true, rows: 2 })}
           </Grid>
         </Grid>
